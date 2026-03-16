@@ -1,0 +1,17 @@
+name: creature_sim
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - matplotlib
+  - numpy
+  - pip
+  - pytorch
+  - jupyterlab
+  - ipykernel
+  - pip:
+      - pygame
