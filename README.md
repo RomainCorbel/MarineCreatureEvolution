@@ -44,7 +44,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu12
 
 ## Utilisation
 
-Pour lancer la simulation standard :
+Pour lancer la simulation :
 
 ```bash
 python main.py
