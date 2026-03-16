@@ -7,19 +7,24 @@
 
 Suivez ces étapes pour configurer votre environnement de développement :
 
-### 1. Créer l'environnement Conda
+### 1. Cloner le dépôt
+```bash
+git clone https://github.com/RomainCorbel/MarineCreatureEvolution.git
+cd MarineCreatureEvolution
+```
+### 2. Créer l'environnement Conda
 Ouvrez un terminal dans le dossier du projet et exécutez :
 ```bash
 conda env create -f environment.yml
 ```
 
-### 2. Activer l'environnement
+### 3. Activer l'environnement
 
 ```bash
 conda activate creature_sim
 ```
 
-### 3. Configuration GPU (NVIDIA uniquement)
+### 4. Configuration GPU si dispo
 
 ```bash
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
