@@ -1,7 +1,7 @@
 import pygame
 import params
-from creature import Node, Creature
-from movement import Muscle
+from creature import Node, Creature, Muscle
+from utils import describe_creature
 
 def spawn():
     n = [Node(-params.SEGMENT_LENGTH/2, 0), Node(params.SEGMENT_LENGTH/2, 0)]
@@ -24,7 +24,7 @@ def main():
         for c in population: c.update(timer)
         leader = max(population, key=lambda c: c.calculate_fitness())
         
-        # Rendu
+        # --- RENDU ---
         zoom, ox, oy = 100, 400, 360
         for m in leader.muscles:
             n1, n2 = leader.nodes[m.n_center], leader.nodes[m.n_target]
@@ -37,8 +37,17 @@ def main():
                                int(params.NODE_RADIUS*zoom))
 
         timer += 1
+        # On ne rentre ici qu'une seule fois toutes les X secondes (params.GEN_DURATION)
         if timer > params.GEN_DURATION:
             population.sort(key=lambda c: c.calculate_fitness(), reverse=True)
+            
+            # --- AFFICHAGE UNIQUE DU LEADER ---
+            best_creature = population[0]
+            print(f"\n{'='*30}")
+            print(f"RÉSULTATS GÉNÉRATION {gen}")
+            print(describe_creature(best_creature))
+            print(f"{'='*30}\n")
+            
             survivors = population[:params.POPULATION_SIZE//2]
             new_gen = []
             for s in survivors:
@@ -46,12 +55,15 @@ def main():
                 for m in s.muscles: m.energy_spent = 0
                 new_gen.append(s)
                 new_gen.append(s.mutate())
+            
             population = new_gen
-            gen += 1; timer = 0
-            print(f"Gen {gen} | Fitness: {leader.fitness:.2f} | Segments: {len(leader.muscles)}")
+            gen += 1
+            timer = 0
 
         pygame.display.flip()
         clock.tick(params.FPS)
+
+
 
 if __name__ == "__main__":
     main()

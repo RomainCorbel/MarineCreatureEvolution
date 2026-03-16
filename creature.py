@@ -3,6 +3,46 @@ import random
 import params
 from utils import intersect
 
+class Muscle:
+    def __init__(self, n_center, n_target, freq, phase, amplitude):
+        self.n_center = n_center
+        self.n_target = n_target
+        self.freq = freq
+        self.phase = phase
+        self.amplitude = amplitude
+        self.length = params.SEGMENT_LENGTH
+        self.energy_spent = 0
+
+    def apply_physics(self, nodes, timer):
+        nc, nt = nodes[self.n_center], nodes[self.n_target]
+        
+        # 1. Rotation forcée
+        target_angle = math.sin(timer * self.freq + self.phase) * self.amplitude
+        dx, dy = nt.x - nc.x, nt.y - nc.y
+        current_angle = math.atan2(dy, dx)
+        diff = (target_angle - current_angle + math.pi) % (2 * math.pi) - math.pi
+        
+        torque = diff * 0.3
+        self.energy_spent += abs(torque) * self.freq
+
+        # 2. Propulsion Newtonienne
+        perp_x, perp_y = -dy / self.length, dx / self.length
+        push = torque * params.WATER_DENSITY
+        nt.vx += perp_x * push
+        nt.vy += perp_y * push
+        nc.vx -= perp_x * push
+        nc.vy -= perp_y * push
+
+        # 3. Contrainte de distance rigide
+        new_dx, new_dy = nt.x - nc.x, nt.y - nc.y
+        new_dist = math.sqrt(new_dx**2 + new_dy**2)
+        if new_dist == 0: return
+        corr = (self.length - new_dist) / new_dist
+        nt.x += new_dx * corr * 0.5
+        nt.y += new_dy * corr * 0.5
+        nc.x -= new_dx * corr * 0.5
+        nc.y -= new_dy * corr * 0.5
+
 class Node:
     def __init__(self, x, y):
         self.ix, self.iy = x, y
@@ -58,15 +98,36 @@ class Creature:
             n.x += n.vx; n.y += n.vy
         self.resolve_collisions()
 
+    # def calculate_fitness(self):
+    #     dist = sum(n.x for n in self.nodes) / len(self.nodes)
+    #     n_muscles = len(self.muscles)
+    #     energy = sum(m.energy_spent for m in self.muscles) + 1
+    #     self.fitness = (dist * 100) / (energy * 0.05 + n_muscles * 2.0)
+    #     return self.fitness
+
     def calculate_fitness(self):
-        dist = sum(n.x for n in self.nodes) / len(self.nodes)
+        # 1. Centre de masse initial (ix, iy)
+        cx_ini = sum(n.ix for n in self.nodes) / len(self.nodes)
+        cy_ini = sum(n.iy for n in self.nodes) / len(self.nodes)
+        
+        # 2. Centre de masse actuel (x, y)
+        cx_act = sum(n.x for n in self.nodes) / len(self.nodes)
+        cy_act = sum(n.y for n in self.nodes) / len(self.nodes)
+        
+        # 3. Distance euclidienne (Pythagore)
+        distance = math.sqrt((cx_act - cx_ini)**2 + (cy_act - cy_ini)**2)
+        
+        # 4. Énergie normalisée (inchangée)
         n_muscles = len(self.muscles)
-        energy = sum(m.energy_spent for m in self.muscles) + 1
-        self.fitness = (dist * 100) / (energy * 0.05 + n_muscles * 2.0)
+        energie_totale = sum(m.energy_spent for m in self.muscles)
+        energie_normalisee = (energie_totale / n_muscles) if n_muscles > 0 else 0
+        
+        # 5. Fitness : Ratio Distance / Effort
+        self.fitness = distance / (energie_normalisee + 1.0)
+        
         return self.fitness
 
     def mutate(self):
-        from movement import Muscle # Import local pour éviter boucle circulaire
         new_nodes = [Node(n.ix, n.iy) for n in self.nodes]
         new_muscles = [Muscle(m.n_center, m.n_target, m.freq, m.phase, m.amplitude) for m in self.muscles]
         

@@ -35,8 +35,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu12
 ## Structure du Projet
 
 * **`main.py`** : Point d'entrée. Lance la boucle Pygame et gère l'affichage.
-* **`creature.py`** : Définit les classes `Node` (physique) et `Creature` (structure).
-* **`movement.py`** : Contient la classe `Muscle` et la logique de propulsion.
+* **`creature.py`** : Définit les classes `Node` (physique), `Creature` (structure) et `Muscle` (logique de propulsion).
 * **`params.py`** : Toutes les constantes (Gravité, FPS, Population, etc.).
 * **`utils.py`** : Fonctions mathématiques et utilitaires de collision.
 
