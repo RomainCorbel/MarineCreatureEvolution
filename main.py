@@ -5,33 +5,39 @@ from utils import describe_creature, save_creature_to_csv
 import random
 import math
 
-def spawn(index): # TO DO: améliorer
+def spawn(index):
+
     num_nodes = random.randint(2, 4)
     nodes = [Node(0, 0)]
-    
-    # 2. On ajoute les autres nœuds autour du premier
+
     for i in range(1, num_nodes):
+
         angle = random.uniform(0, 2 * math.pi)
         dist = params.SEGMENT_LENGTH
+
         new_x = nodes[0].x + math.cos(angle) * dist
         new_y = nodes[0].y + math.sin(angle) * dist
+
         nodes.append(Node(new_x, new_y))
-    
-    # 3. Nombre de muscles aléatoire 
-    # Au minimum (num_nodes - 1) pour que tout soit relié
+
     muscles = []
-    # On relie chaque nouveau nœud à un nœud existant pour garantir la structure
+
     for i in range(1, num_nodes):
-        target = random.randint(0, i-1)
-        muscles.append(Muscle(
-                    n_center=target,
-                    n_target=i,
-                    freq=random.uniform(0.1, 0.5),
-                    phase=random.uniform(0, 2 * math.pi),
-                    amplitude=random.uniform(0.3, 1.0) # On évite les amplitudes trop molles
-                ))
+
+        target = random.randint(0, i - 1)
+
+        muscles.append(
+            Muscle(
+                n_center=target,
+                n_target=i,
+                freq=random.uniform(0.1, 0.5),
+                phase=random.uniform(0, 2 * math.pi),
+                amplitude=random.uniform(0.3, 1.0),
+            )
+        )
 
     ancestor_label = f"{index+1}/{params.POPULATION_SIZE}"
+
     return Creature(nodes, muscles, ancestor_id=ancestor_label)
 
 def main():

@@ -36,50 +36,6 @@ def describe_creature(creature):
     
     return "\n".join(stats)
 
-# def save_creature_to_csv(creature, gen, filename="creatures_data.csv"):
-#     """Enregistre les stats d'une créature avec son ancêtre et sa génération."""
-    
-#     # Calculs
-#     total_dist = sum(n.x for n in creature.nodes) / len(creature.nodes)
-#     total_energy = sum(m.energy_spent for m in creature.muscles)
-#     n_muscles = len(creature.muscles)
-#     std_energy = total_energy / n_muscles if n_muscles > 0 else 0
-
-#     file_exists = os.path.isfile(filename)
-    
-#     # On ajoute "gen" et "ancestor_id" en début de colonnes
-#     headers = [
-#         "generation", "ancestor_id", "fitness", "distance", 
-#         "total_energy", "num_nodes", "num_muscles", "muscle_data"
-#     ]
-    
-#     muscle_dna = "|".join([
-#         f"M{i}({m.n_center}-{m.n_target}:F={m.freq:.2f},P={m.phase:.2f},A={m.amplitude:.2f})"
-#         for i, m in enumerate(creature.muscles)
-#     ])
-
-#     data = [
-#         gen,                         # Génération actuelle
-#         creature.ancestor_id,        # L'ancêtre "X/100"
-#         round(creature.fitness, 4),
-#         round(total_dist, 4),
-#         round(total_energy, 4),
-#         round(std_energy, 4),
-#         len(creature.nodes),
-#         n_muscles,
-#         muscle_dna
-#     ]
-
-#     # Écriture UTF-16 + Tabulation (Le combo parfait pour Excel FR)
-#     with open(filename, mode='a', newline='', encoding='utf-16') as f:
-#         writer = csv.writer(f, delimiter='\t')
-#         if not file_exists:
-#             writer.writerow(headers)
-#         writer.writerow(data)
-
-#     return f"Données de la lignée {creature.ancestor_id} sauvegardées."
-
-
 def save_creature_to_csv(creature, gen, ranking, filename="creatures_data.csv"):
     """Enregistre les stats d'une créature incluant son rang dans la génération."""
     
