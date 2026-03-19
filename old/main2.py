@@ -47,41 +47,68 @@ def spawn(index):
 
 
 ############################################
+# CROSSOVER ENTRE DEUX PARENTS
+############################################
+
+
+def crossover(p1, p2):
+    """
+    Combine les muscles des deux parents.
+    """
+
+    # On garde la structure de p1 (plus simple)
+    new_nodes = [Node(n.initial_x, n.initial_y) for n in p1.nodes]
+
+    new_muscles = []
+
+    for m1, m2 in zip(p1.muscles, p2.muscles):
+
+        if random.random() < 0.5:
+            chosen = m1
+        else:
+            chosen = m2
+
+        new_muscles.append(copy.deepcopy(chosen))
+
+    return Creature(new_nodes, new_muscles, ancestor_id=p1.ancestor_id)
+
+
+############################################
 # SELECTION STOCHASTIQUE (ROULETTE WHEEL)
 ############################################
 
-def select_parent(population):
+def roulette_selection(population, k=2):
     """
-    Sélection stochastique basée sur la fitness.
-
-    Principe :
-    Chaque créature possède une probabilité proportionnelle
-    à sa fitness.
-
-    P(i) = fitness_i / somme_des_fitness
-
-    On simule cela avec une roulette :
-
-    1) on calcule la somme des fitness
-    2) on tire un nombre aléatoire entre 0 et cette somme
-    3) on parcourt la population jusqu'à dépasser ce nombre
+    Sélectionne k individus via roulette wheel
+    avec pression de sélection.
     """
 
-    total_fitness = sum(c.fitness for c in population)
+    # 🔥 C'EST ICI
+    fitnesses = [math.pow(c.fitness, 1.5) for c in population]
 
-    # tirage aléatoire dans la roulette
-    pick = random.uniform(0, total_fitness)
+    total = sum(fitnesses)
 
-    current = 0
+    if total == 0:
+        return random.sample(population, k)
 
-    for creature in population:
+    rel_fitness = [f / total for f in fitnesses]
 
-        current += creature.fitness
+    probs = []
+    cumulative = 0
+    for rf in rel_fitness:
+        cumulative += rf
+        probs.append(cumulative)
 
-        if current >= pick:
-            return creature
+    selected = []
 
-    return population[-1]
+    for _ in range(k):
+        r = random.random()
+        for i, individual in enumerate(population):
+            if r <= probs[i]:
+                selected.append(individual)
+                break
+
+    return selected
 
 
 ############################################
@@ -90,31 +117,95 @@ def select_parent(population):
 
 def evolve_population(population):
 
-    new_population = []
-
-    # ELITISM : on garde le meilleur individu
     population.sort(key=lambda c: c.fitness, reverse=True)
 
-    elite = population[0]
-    new_population.append(elite)
+    new_population = []
 
+    # ELITE
+    elite = population[0]
     for n in elite.nodes:
         n.reset()
+    new_population.append(elite)
 
-    # création du reste de la population
-    while len(new_population) < params.POPULATION_SIZE:
+    ########################################
+    # MODE 1 : ENFANTS UNIQUEMENT
+    ########################################
+    if params.EVOLUTION_MODE == "children_only":
 
-        parent = select_parent(population)
+        while len(new_population) < params.POPULATION_SIZE:
 
-        child = parent.mutate()
+            parent1, parent2 = roulette_selection(population, 2)
+            child = crossover(parent1, parent2)
+            child = child.mutate()
 
-        for n in child.nodes:
-            n.reset()
+            for n in child.nodes:
+                n.reset()
 
-        new_population.append(child)
+            new_population.append(child)
+
+    ########################################
+    # MODE 2 : PARENTS + ENFANTS
+    ########################################
+    elif params.EVOLUTION_MODE == "parents_plus_children":
+
+        # garder top 20% parents
+        survivors = population[:int(0.2 * len(population))]
+
+        for s in survivors:
+            for n in s.nodes:
+                n.reset()
+
+        new_population.extend(survivors)
+
+        while len(new_population) < params.POPULATION_SIZE:
+
+            parent1, parent2 = roulette_selection(population, 2)
+            child = crossover(parent1, parent2)
+            child = child.mutate()
+
+            for n in child.nodes:
+                n.reset()
+
+            new_population.append(child)
+
+    ########################################
+    # MODE 3 : HYBRIDE (RECOMMANDÉ 🔥)
+    ########################################
+    elif params.EVOLUTION_MODE == "hybrid":
+
+        # 10% élite
+        elites = population[:int(0.1 * len(population))]
+        for e in elites:
+            for n in e.nodes:
+                n.reset()
+
+        new_population.extend(elites)
+
+        while len(new_population) < params.POPULATION_SIZE:
+
+            r = random.random()
+
+            # 70% reproduction
+            if r < 0.7:
+                parent1, parent2 = roulette_selection(population, 2)
+                child = crossover(parent1, parent2)
+                child = child.mutate()
+
+            # 20% mutation pure
+            elif r < 0.9:
+                parent = random.choice(population)
+                child = parent.mutate()
+
+            # 10% random spawn (exploration)
+            else:
+                child = spawn(random.randint(0, params.POPULATION_SIZE))
+
+            for n in child.nodes:
+                n.reset()
+
+            new_population.append(child)
 
     return new_population
-
 
 ############################################
 # MAIN LOOP
