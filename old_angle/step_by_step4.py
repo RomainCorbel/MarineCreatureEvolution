@@ -5,7 +5,7 @@ WIDTH, HEIGHT = 1280, 720
 FPS = 60
 ZOOM = 100
 RIGIDITY = 0.5
-DAMPING = 0.98
+DAMPING = 0.99
 
 def draw_axes(screen, ox, oy):
     pygame.draw.line(screen, (100, 0, 0), (0, oy), (WIDTH, oy), 1)

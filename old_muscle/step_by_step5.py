@@ -7,7 +7,7 @@ FPS = 120
 ZOOM = 100
 RIGIDITY_BONE = 1  
 RIGIDITY_MUSCLE = 0.5 
-DAMPING = 0.99 
+DAMPING = 0.99
 
 class Node:
     def __init__(self, x, y):
@@ -73,16 +73,16 @@ def spawn_pince():
     # On définit les positions initiales
     # Pivot en (0,0), bras en (0,1) et (1,0)
     nodes = [
-        Node(0, 0),     # 0: Pivot
-        Node(-0.5, -0.01),  # 1: Pointe gauche
-        Node(0.5, 0),   # 2: Pointe droite
-    ]
+            Node(0, 0),       # Pivot
+            Node(-0.5, 0.01), # Un tout petit décalage en Y ici !
+            Node(0.5, -0.01),     # Pointe droite
+        ]
     
     # La mesure automatique du Muscle va calculer base_len entre (1) et (2)
     edges = [
         Edge(0, 1, nodes, is_bone=True),  # Os gauche
         Edge(0, 2, nodes, is_bone=True),  # Os droit
-        Edge(1, 2, nodes, is_bone=False, amplitude=0.6, period=240)  # Le muscle de fermeture entre les deux pointes
+        Edge(1, 2, nodes, is_bone=False, amplitude=0.2, period=240)  # Le muscle de fermeture entre les deux pointes
     ]
     return Creature(nodes, edges)
 
