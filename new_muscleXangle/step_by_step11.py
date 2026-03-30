@@ -16,7 +16,7 @@ FLOW_POWER = 2    # Exposant de la vitesse : 1=lineaire, 2=quadratique (amplifie
 FLOW_MAX   = 0.3  # Force maximale par substep (evite la divergence)
 DRAG = 0.16          # Resistance de l'eau sur les membres
 INERTIA_GAIN  = 0.4  # Fraction de la force convertie en inertie
-INERTIA_DECAY = 0.9 # Vitesse de dissipation de l'inertie (proche de 1 = lente)
+INERTIA_DECAY = 0.92 # Vitesse de dissipation de l'inertie (proche de 1 = lente)
 
 class Node:
     def __init__(self, x, y, is_muscle=False, amplitude=0.3, phase=0.0, period=120, duty_cycle=0.5):
