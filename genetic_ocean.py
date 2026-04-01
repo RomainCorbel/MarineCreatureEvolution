@@ -27,9 +27,12 @@ INERTIA_DECAY = 0.92
 # --- Genetic Algorithm ---
 POP_SIZE = 100
 NUM_GENERATIONS = 5
-ELITE_COUNT = 50         # Selected via roulette
-OFFSPRING_COUNT = 50     # Generated via crossover + mutation
-MUTATION_PROBABILITY = 0.5 # Chance that an offspring is mutated
+PURE_ELITE_COUNT = 4                              # Top individuals copied directly (elitism)
+ROULETTE_SURVIVORS = 5                            # Small number of direct roulette copies
+RANDOM_INJECT = 15                                # Fresh random creatures (15% — key for diversity)
+_OFFSPRING = POP_SIZE - PURE_ELITE_COUNT - ROULETTE_SURVIVORS - RANDOM_INJECT
+CROSSOVER_MUTATE_COUNT = _OFFSPRING // 2          # Crossover + mutation
+MUTATION_ONLY_COUNT = _OFFSPRING - CROSSOVER_MUTATE_COUNT  # Mutation only (no crossover)
 SIMULATION_DURATION = FPS * 10  # 10 seconds of physics per creature
 WARMUP_FRAMES = FPS * 2        # Ignore first 2s for distance measurement
 DISTANCE_DIVERGE = 8.0         # Discard if distance exceeds this
@@ -206,8 +209,9 @@ class Creature:
 # ============================================================
 
 def random_num_nodes():
+    # Flatter distribution: less bias toward tiny creatures (was -1.4)
     choices = list(range(3, 11))
-    weights = [math.exp(-1.4 * i) for i in range(len(choices))]
+    weights = [math.exp(-0.35 * i) for i in range(len(choices))]
     return random.choices(choices, weights=weights)[0]
 
 
@@ -316,9 +320,10 @@ def mutate(creature):
     muscle_nodes = [n for n in nodes if n.is_muscle and n.nodes_ref]
 
     if muscle_nodes:
-        pool = (['amplitude'] * 3 + ['duty_cycle'] * 3 +
-                ['phase_break'] * 2 + ['add_node'] * 4 +
-                ['remove_node'] * 2)
+        # Structural mutations more likely; parameter mutations smaller steps
+        pool = (['amplitude'] * 2 + ['duty_cycle'] * 2 + ['period'] * 1 +
+                ['phase_break'] * 2 + ['add_node'] * 6 +
+                ['remove_node'] * 1 + ['rewire_edge'] * 3)
     else:
         pool = ['add_node']
 
@@ -326,15 +331,20 @@ def mutate(creature):
 
     if choice == 'amplitude':
         n = random.choice(muscle_nodes)
-        n.amplitude = max(0.05, min(2.0, n.amplitude + random.uniform(-0.3, 0.3)))
+        n.amplitude = max(0.05, min(2.0, n.amplitude + random.uniform(-0.12, 0.12)))
 
     elif choice == 'duty_cycle':
         n = random.choice(muscle_nodes)
-        n.duty_cycle = max(0.05, min(0.95, n.duty_cycle + random.uniform(-0.15, 0.15)))
+        n.duty_cycle = max(0.05, min(0.95, n.duty_cycle + random.uniform(-0.07, 0.07)))
+
+    elif choice == 'period':
+        n = random.choice(muscle_nodes)
+        delta = random.randint(-15, 15)
+        n.period = max(FPS // 2, min(FPS * 6, n.period + delta))
 
     elif choice == 'phase_break':
         n = random.choice(muscle_nodes)
-        n.phase = (n.phase + random.uniform(0.2, math.pi)) % (2 * math.pi)
+        n.phase = (n.phase + random.uniform(0.1, 0.5)) % (2 * math.pi)
 
     elif choice == 'add_node':
         if len(nodes) < 10:
@@ -382,6 +392,34 @@ def mutate(creature):
                 if conn[i] >= 2:
                     _setup_muscle(nd, adj, nodes, i)
             c = Creature(nodes, edges)
+
+    elif choice == 'rewire_edge':
+        # Move one endpoint of a random edge to a different node,
+        # creating a new topology without changing node count.
+        if len(edges) > 1:
+            conn, _ = _build_adjacency(nodes, edges)
+            # Pick an edge whose removal won't isolate a node (degree > 1)
+            rewirable = [e for e in edges
+                         if conn[e.n_a] > 1 and conn[e.n_b] > 1]
+            if rewirable:
+                e = random.choice(rewirable)
+                # Choose which endpoint to rewire
+                if random.random() < 0.5:
+                    old_end, fixed_end = e.n_a, e.n_b
+                else:
+                    old_end, fixed_end = e.n_b, e.n_a
+                # Pick a new endpoint different from both current endpoints
+                candidates = [i for i in range(len(nodes))
+                              if i != old_end and i != fixed_end]
+                if candidates:
+                    new_end = random.choice(candidates)
+                    e.n_a, e.n_b = fixed_end, new_end
+                    conn, adj = _build_adjacency(nodes, edges)
+                    for i, nd in enumerate(nodes):
+                        nd.nodes_ref = None
+                        nd.is_muscle = False
+                        if conn[i] >= 2:
+                            _setup_muscle(nd, adj, nodes, i)
 
     return c
 
@@ -438,12 +476,27 @@ def evaluate_fitness(creature):
 
 
 # ============================================================
-#  ROULETTE WHEEL SELECTION
+#  ROULETTE WHEEL SELECTION (with optional fitness sharing)
 # ============================================================
 
-def roulette_select(population, fitnesses, k):
+def roulette_select(population, fitnesses, k, shared=False):
+    """Select k individuals via roulette wheel.
+    If shared=True, apply niche-based fitness sharing: divide each
+    creature's fitness by the count of creatures with the same node count.
+    This prevents small creatures from monopolising the selection.
+    """
     epsilon = 1e-4
     adjusted = [f + epsilon for f in fitnesses]
+
+    if shared:
+        niche_count = {}
+        for c in population:
+            key = (len(c.nodes), sum(1 for n in c.nodes if n.is_muscle))
+            niche_count[key] = niche_count.get(key, 0) + 1
+        adjusted = [a / niche_count[(len(population[i].nodes),
+                                     sum(1 for n in population[i].nodes if n.is_muscle))]
+                    for i, a in enumerate(adjusted)]
+
     total = sum(adjusted)
     probabilities = [a / total for a in adjusted]
 
@@ -460,6 +513,8 @@ def roulette_select(population, fitnesses, k):
             if r <= c:
                 selected.append(population[i])
                 break
+        else:
+            selected.append(population[-1])
     return selected
 
 
@@ -568,8 +623,9 @@ def main():
     print("=" * 60)
     print("  GENETIC ALGORITHM — Marine Creatures")
     print(f"  Population: {POP_SIZE} | Generations: {NUM_GENERATIONS}")
-    print(f"  Elite (roulette): {ELITE_COUNT} | Offspring: {OFFSPRING_COUNT}")
-    print(f"  Mutation prob: {MUTATION_PROBABILITY:.0%}")
+    print(f"  Pure elites: {PURE_ELITE_COUNT} | Roulette survivors: {ROULETTE_SURVIVORS}"
+          f" | Crossover+mut: {CROSSOVER_MUTATE_COUNT} | Mutation only: {MUTATION_ONLY_COUNT}"
+          f" | Random inject: {RANDOM_INJECT}")
     print("=" * 60)
 
     # --- Setup pygame (off-screen only, no window) ---
@@ -580,13 +636,15 @@ def main():
 
     # --- Open video file ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    video_path = os.path.join(script_dir, "evolution.mp4")
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    video_path = os.path.join(script_dir, f"evolution_{timestamp}.mp4")
     ffmpeg_proc = open_video_writer(video_path)
     print(f"\n  Video will be saved to: {video_path}\n")
 
     # --- Generation 0: random population ---
     print("[Gen 0] Spawning initial population...")
     population = [spawn_random_creature() for _ in range(POP_SIZE)]
+    _prev_best_fitness = 0.0
 
     for gen in range(NUM_GENERATIONS):
         t0 = time.time()
@@ -602,16 +660,29 @@ def main():
                       f"({elapsed:.1f}s)")
 
         # --- Stats ---
-        best_idx = max(range(len(population)), key=lambda i: fitnesses[i])
+        sorted_indices = sorted(range(len(population)),
+                                key=lambda i: fitnesses[i], reverse=True)
+        best_idx = sorted_indices[0]
         best_fitness = fitnesses[best_idx]
         best_creature = population[best_idx]
         avg_fitness = sum(fitnesses) / len(fitnesses)
         min_fitness = min(fitnesses)
 
+        # Node-size diversity report
+        niche_dist = {}
+        for c in population:
+            sz = len(c.nodes)
+            niche_dist[sz] = niche_dist.get(sz, 0) + 1
+        niche_str = "  ".join(f"{k}n:{v}" for k, v in sorted(niche_dist.items()))
+
         elapsed = time.time() - t0
+        regression = (" *** REGRESSION ***"
+                      if gen > 0 and best_fitness < _prev_best_fitness else "")
         print(f"\n  [Gen {gen}] Done in {elapsed:.1f}s  |  "
               f"Best: {best_fitness:.4f}  Avg: {avg_fitness:.4f}  "
-              f"Min: {min_fitness:.4f}")
+              f"Min: {min_fitness:.4f}{regression}")
+        _prev_best_fitness = best_fitness
+        print(f"  Diversity: {niche_str}")
 
         gen_stats = {
             'avg': avg_fitness,
@@ -624,19 +695,35 @@ def main():
         render_creature_to_video(best_creature, gen, best_fitness,
                                  gen_stats, surface, font, ffmpeg_proc)
 
-        # --- Selection: roulette wheel ---
-        elite = roulette_select(population, fitnesses, ELITE_COUNT)
-        next_population = [deep_copy_creature(c) for c in elite]
+        # --- 1. Pure elitism: top PURE_ELITE_COUNT go directly ---
+        next_population = [deep_copy_creature(population[i])
+                           for i in sorted_indices[:PURE_ELITE_COUNT]]
 
-        # --- Offspring: crossover + optional mutation ---
-        for _ in range(OFFSPRING_COUNT):
-            parents = roulette_select(population, fitnesses, 2)
+        # --- 2. Roulette survivors: small number copied directly ---
+        survivors = roulette_select(population, fitnesses, ROULETTE_SURVIVORS, shared=True)
+        for c in survivors:
+            next_population.append(deep_copy_creature(c))
+
+        # --- 3. Crossover + mutation ---
+        for _ in range(CROSSOVER_MUTATE_COUNT):
+            parents = roulette_select(population, fitnesses, 2, shared=True)
             child = crossover(parents[0], parents[1])
-            if random.random() < MUTATION_PROBABILITY:
-                child = mutate(child)
+            child = mutate(child)
             recenter(child)
             reset_velocities(child)
             next_population.append(child)
+
+        # --- 4. Mutation only (no crossover) — preserves structural diversity ---
+        for _ in range(MUTATION_ONLY_COUNT):
+            parent = roulette_select(population, fitnesses, 1, shared=True)[0]
+            child = mutate(parent)
+            recenter(child)
+            reset_velocities(child)
+            next_population.append(child)
+
+        # --- 5. Inject fresh random creatures for structural diversity ---
+        for _ in range(RANDOM_INJECT):
+            next_population.append(spawn_random_creature())
 
         population = next_population
         print(f"  [Gen {gen}] Next generation ready ({len(population)} "
