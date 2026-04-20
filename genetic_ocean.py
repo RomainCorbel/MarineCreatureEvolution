@@ -27,9 +27,9 @@ INERTIA_DECAY = 0.92
 # --- Genetic Algorithm ---
 POP_SIZE = 100
 NUM_GENERATIONS = 5
-PURE_ELITE_COUNT = 4                              # Top individuals copied directly (elitism)
-ROULETTE_SURVIVORS = 5                            # Small number of direct roulette copies
-RANDOM_INJECT = 15                                # Fresh random creatures (15% — key for diversity)
+PURE_ELITE_COUNT = 2                              # Top individuals copied directly (elitism)
+ROULETTE_SURVIVORS = 3                            # Small number of direct roulette copies
+RANDOM_INJECT = 30                                # Fresh random creatures (30% — key for diversity)
 _OFFSPRING = POP_SIZE - PURE_ELITE_COUNT - ROULETTE_SURVIVORS - RANDOM_INJECT
 CROSSOVER_MUTATE_COUNT = _OFFSPRING // 2          # Crossover + mutation
 MUTATION_ONLY_COUNT = _OFFSPRING - CROSSOVER_MUTATE_COUNT  # Mutation only (no crossover)
@@ -72,6 +72,7 @@ class Creature:
     def __init__(self, nodes, edges):
         self.nodes = nodes
         self.edges = edges
+        self.energy_spent = 0.0   # Cumulative muscle work (J-equivalent)
 
     def update(self, frame_count):
         for _ in range(SUBSTEPS):
@@ -138,6 +139,8 @@ class Creature:
                 current_angle = angle_r - angle_l
                 diff = (n.target_angle - current_angle + math.pi) % (2 * math.pi) - math.pi
                 torque_force = diff * RIGIDITY_MUSCLE
+                # W = torque × angular_correction = RIGIDITY_MUSCLE × diff²
+                self.energy_spent += RIGIDITY_MUSCLE * diff * diff
                 fl_x = math.sin(angle_l) * torque_force / dist_l
                 fl_y = -math.cos(angle_l) * torque_force / dist_l
                 fr_x = -math.sin(angle_r) * torque_force / dist_r
@@ -451,6 +454,7 @@ def evaluate_fitness(creature):
     c = deep_copy_creature(creature)
     recenter(c)
     reset_velocities(c)
+    c.energy_spent = 0.0  # Reset energy accumulator for this evaluation
 
     max_pos = 20.0
     start_cx, start_cy = 0.0, 0.0
@@ -472,7 +476,22 @@ def evaluate_fitness(creature):
 
     end_cx, end_cy = centroid(c)
     dist = math.sqrt((end_cx - start_cx)**2 + (end_cy - start_cy)**2)
-    return dist if dist <= DISTANCE_DIVERGE else 0.0
+
+    if dist > DISTANCE_DIVERGE:
+        return 0.0
+
+    # Creatures that don't move (or have no muscles) get zero fitness.
+    if c.energy_spent <= 0.0 or dist <= 0.0:
+        return 0.0
+
+    # Fitness = energy efficiency weighted by creature size:
+    #   fitness = displacement × size_factor / energy_spent
+    #
+    # size_factor = number of nodes (proxy for mass / available energy store).
+    # A larger creature naturally spends more energy, but its bigger size_factor
+    # compensates — so the GA rewards efficient locomotion regardless of body size.
+    size_factor = len(c.nodes)
+    return dist * size_factor / c.energy_spent
 
 
 # ============================================================
