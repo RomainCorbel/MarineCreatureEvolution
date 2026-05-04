@@ -3,11 +3,9 @@ jellyfish_ga.py — Genetic Algorithm for fixed-topology jellyfish (méduse)
 
 Topology (Λ shape, bell at top, arms hanging below):
 
-        MUSCLE(2)           ← bell apex, the single muscle node
+        MUSCLE(1)           ← bell apex, the single muscle node
        /         \
-   arm_L(1)   arm_R(3)      ← inner arm joints
-     |               |
-   tip_L(0)       tip_R(4)  ← passive tips
+   arm_L(0)   arm_R(2)      ← arm endpoints
 
 Genome: amplitude · period · duty_cycle · arm_angle · arm_length
 Fitness: displacement^1.5 / (energy^0.5 + ε)
@@ -70,7 +68,7 @@ GENOME_MAX    = np.array([2.00,  FPS*4,   0.95,  2.60,  1.50], dtype=np.float64)
 #  GA
 # ============================================================
 POP_SIZE             = 80
-NUM_GENERATIONS      = 5
+NUM_GENERATIONS      = 20
 ELITE_COUNT          = 3
 TOURNAMENT_SIZE      = 5
 CROSSOVER_PROB       = 0.65
@@ -96,10 +94,10 @@ FRAME_SKIP    = FPS // VIDEO_FPS
 NUM_WORKERS         = max(1, cpu_count() - 1)
 EVAL_PROGRESS_CHUNK = 10
 
-# Fixed node indices for the 5-node medusa
-_M  = 2   # MUSCLE
-_RL = 1   # left  arm reference
-_RR = 3   # right arm reference
+# Fixed node indices for the 3-node medusa
+_M  = 1   # MUSCLE
+_RL = 0   # left  arm
+_RR = 2   # right arm
 
 
 # ============================================================
@@ -161,13 +159,10 @@ def build_medusa(g):
     MUSCLE_pos = np.array([0.0, 0.0])
     arm_L_pos  = arm_L_dir * arm_len
     arm_R_pos  = arm_R_dir * arm_len
-    tip_L_pos  = arm_L_pos + arm_L_dir   # 1 unit beyond arm
-    tip_R_pos  = arm_R_pos + arm_R_dir
 
-    nodes_xy  = np.array([tip_L_pos, arm_L_pos, MUSCLE_pos,
-                           arm_R_pos, tip_R_pos], dtype=np.float64)
-    edges     = np.array([[0,1],[1,2],[2,3],[3,4]], dtype=np.int32)
-    edge_rest = np.array([1.0, arm_len, arm_len, 1.0], dtype=np.float64)
+    nodes_xy  = np.array([arm_L_pos, MUSCLE_pos, arm_R_pos], dtype=np.float64)
+    edges     = np.array([[0,1],[1,2]], dtype=np.int32)
+    edge_rest = np.array([arm_len, arm_len], dtype=np.float64)
 
     # Base angle at MUSCLE between the two arm directions
     base_angle = (math.atan2(float(arm_R_dir[1]), float(arm_R_dir[0]))
@@ -176,8 +171,8 @@ def build_medusa(g):
     return {
         'genome'        : g.copy(),
         'nodes_xy'      : nodes_xy,
-        'nodes_v'       : np.zeros((5, 2), dtype=np.float64),
-        'nodes_inertia' : np.zeros((5, 2), dtype=np.float64),
+        'nodes_v'       : np.zeros((3, 2), dtype=np.float64),
+        'nodes_inertia' : np.zeros((3, 2), dtype=np.float64),
         'edges'         : edges,
         'edge_rest'     : edge_rest,
         'base_angle'    : base_angle,
@@ -253,7 +248,7 @@ def physics_step(c, frame):
     diff_v  = xy[:, None, :] - closest
     dist_c  = np.linalg.norm(diff_v, axis=2)
 
-    ni     = np.arange(5)
+    ni     = np.arange(3)
     not_ep = (ni[:, None] != a_idx[None]) & (ni[:, None] != b_idx[None])
     active = not_ep & (dist_c < 0.2) & (dist_c > 0)
     if active.any():
@@ -475,8 +470,8 @@ def render_generation(genome, gen_label, fitness, displacement,
     sfont = pygame.font.SysFont(None, 19)
     trail = []
 
-    node_colors = [(210,225,255), (110,195,255), (255,65,65), (110,195,255), (210,225,255)]
-    node_radii  = [7, 8, 11, 8, 7]
+    node_colors = [(110,195,255), (255,65,65), (110,195,255)]
+    node_radii  = [8, 11, 8]
 
     for frame in range(SIMULATION_DURATION):
         creature_update(c, frame)
@@ -519,7 +514,7 @@ def render_generation(genome, gen_label, fitness, displacement,
             pygame.draw.line(surface, (70, 130, 240), p1, p2, 5)
 
         # Nodes
-        for i in range(5):
+        for i in range(3):
             pos = (int(xy[i,0]*ZOOM+cam_x), int(xy[i,1]*ZOOM+cam_y))
             pygame.draw.circle(surface, node_colors[i], pos, node_radii[i])
 
