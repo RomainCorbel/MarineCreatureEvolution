@@ -751,21 +751,40 @@ def save_csv(history, script_dir, timestamp, silent=False):
     with open(path, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['gen', 'best_fitness', 'avg_fitness', 'min_fitness',
-                         'amplitude', 'period', 'duty_cycle',
-                         'arm_angle_deg', 'arm_length'])
-        for i, g in enumerate(history['best_genome']):
-            gd = genome_to_dict(g)
-            writer.writerow([
+                         'best_energy', 'avg_energy', 'min_energy',
+                         'best_distance', 'avg_distance', 'min_distance',
+                         'member', 'amplitude', 'period', 'duty_cycle',
+                         'arm_angle_deg', 'arm_length',
+                         'member_fitness', 'member_distance', 'member_energy'])
+        for i, genomes in enumerate(history['all_genomes']):
+            fitnesses = history['all_fitnesses'][i]
+            disps     = history['all_displacements'][i]
+            energies  = history['all_energies'][i]
+            gen_summary = [
                 i+1,
                 f"{history['best'][i]:.6f}",
                 f"{history['avg'][i]:.6f}",
                 f"{history['min'][i]:.6f}",
-                f"{gd['amplitude']:.4f}",
-                gd['period'],
-                f"{gd['duty_cycle']:.4f}",
-                f"{math.degrees(gd['arm_angle']):.2f}",
-                f"{gd['arm_length']:.4f}",
-            ])
+                f"{max(energies):.6f}",
+                f"{sum(energies)/len(energies):.6f}",
+                f"{min(energies):.6f}",
+                f"{max(disps):.6f}",
+                f"{sum(disps)/len(disps):.6f}",
+                f"{min(disps):.6f}",
+            ]
+            for j, g in enumerate(genomes):
+                gd = genome_to_dict(g)
+                writer.writerow(gen_summary + [
+                    j+1,
+                    f"{gd['amplitude']:.4f}",
+                    gd['period'],
+                    f"{gd['duty_cycle']:.4f}",
+                    f"{math.degrees(gd['arm_angle']):.2f}",
+                    f"{gd['arm_length']:.4f}",
+                    f"{fitnesses[j]:.6f}",
+                    f"{disps[j]:.6f}",
+                    f"{energies[j]:.6f}",
+                ])
     if not silent:
         print(f"  CSV  saved: {path}")
 
@@ -797,7 +816,7 @@ def main():
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     timestamp  = time.strftime("%Y%m%d_%H%M%S")
-    print(f"  Videos → {script_dir}/evolution_{timestamp}_genXXX.mp4\n")
+    print(f"  Videos → {script_dir}/videos/evolution_{timestamp}_genXXX.mp4\n")
 
     history = {
         'best': [], 'avg': [], 'min': [],
