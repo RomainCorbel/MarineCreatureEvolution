@@ -198,9 +198,10 @@ def save_plots(history, out_dir, timestamp):
     bi = int(np.argmax(ff))
     axes[0].scatter([fd[bi]], [fe[bi]], c='lime', s=220, marker='*',
                     zorder=5, label=f'Best (f={ff[bi]:.4f})')
-    axes[0].set(xlabel='Displacement (units)', ylabel='Total energy',
+    axes[0].set_yscale('log')
+    axes[0].set(xlabel='Displacement (units)', ylabel='Total energy (log scale)',
                 title='Last Generation: Displacement vs Energy')
-    axes[0].legend(fontsize=10); axes[0].grid(True, alpha=0.3)
+    axes[0].legend(fontsize=10); axes[0].grid(True, alpha=0.3, which='both')
 
     nonzero = ff[ff > 0]
     axes[1].hist(nonzero, bins=min(20, max(len(nonzero)//2+1, 2)),
@@ -217,9 +218,12 @@ def save_plots(history, out_dir, timestamp):
     p = os.path.join(out_dir, f"plot_pareto_{timestamp}.png")
     fig.savefig(p, dpi=150); plt.close(fig); paths.append(p)
 
-    # ── 5. Summary panel 2×3 ─────────────────────────────────────────
-    fig = plt.figure(figsize=(18, 10))
-    gs  = gridspec.GridSpec(2, 3, figure=fig, hspace=0.44, wspace=0.34)
+    # ── 5. Summary panel 3×3 ─────────────────────────────────────────
+    best_disp   = np.array([ad[g][int(np.argmax(af[g]))] for g in gens])
+    best_energy = np.array([ae[g][int(np.argmax(af[g]))] for g in gens])
+
+    fig = plt.figure(figsize=(18, 14))
+    gs  = gridspec.GridSpec(3, 3, figure=fig, hspace=0.50, wspace=0.34)
 
     ax = fig.add_subplot(gs[0, 0])
     ax.plot(gens, history['best'], '#2ecc71', lw=2, marker='o', ms=3, label='Best')
@@ -256,6 +260,17 @@ def save_plots(history, out_dir, timestamp):
     _param_band(ax, pop_vals(4), gens, pb_deg[:, 4], colors[4])
     ax.set_title('Arm Length', fontweight='bold', fontsize=11)
     ax.set(xlabel='Generation', ylabel='units'); ax.grid(alpha=0.3)
+
+    ax = fig.add_subplot(gs[2, 0])
+    _param_band(ax, ad, gens, best_disp, '#27ae60')
+    ax.set_title('Displacement', fontweight='bold', fontsize=11)
+    ax.set(xlabel='Generation', ylabel='units'); ax.grid(alpha=0.3)
+
+    ax = fig.add_subplot(gs[2, 1])
+    _param_band(ax, ae, gens, best_energy, '#c0392b')
+    ax.set_yscale('log')
+    ax.set_title('Energy (log scale)', fontweight='bold', fontsize=11)
+    ax.set(xlabel='Generation', ylabel='energy'); ax.grid(alpha=0.3, which='both')
 
     fig.suptitle('Jellyfish GA — Evolution Summary\n'
                  '(shaded band = population IQR, line = best individual)',
