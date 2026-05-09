@@ -22,7 +22,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from multiprocessing import Pool, cpu_count
-import pygame
 
 # ============================================================
 #  PHYSICS
@@ -67,16 +66,18 @@ GENOME_MAX    = np.array([2.00,  FPS*4,   0.95,  2.60,  1.50], dtype=np.float64)
 # ============================================================
 #  GA
 # ============================================================
-POP_SIZE             = 80
+prop_elit = 3/80
+prop_inject = 6/80
+POP_SIZE             = 100
 NUM_GENERATIONS      = 20
-ELITE_COUNT          = 3
+ELITE_COUNT          = int(POP_SIZE * prop_elit)
 TOURNAMENT_SIZE      = 5
 CROSSOVER_PROB       = 0.65
 MUTATION_PROB        = 0.80
 MUT_PARAM_PROB       = 0.70
 MUTATION_SCALE_INIT  = 1.00
 MUTATION_SCALE_FINAL = 0.04
-RANDOM_INJECT        = 6
+RANDOM_INJECT        = int(POP_SIZE * prop_inject)
 STAGNATION_LIMIT     = 15
 STAGNATION_THRESHOLD = 1.005
 
@@ -448,6 +449,7 @@ def open_video(path):
 
 
 def _draw_mini_chart(surface, history, cur_gen_idx, x, y, sfont, w=200, h=120):
+    import pygame
     bests = history['best']
     if not bests:
         return
@@ -465,6 +467,7 @@ def _draw_mini_chart(surface, history, cur_gen_idx, x, y, sfont, w=200, h=120):
 
 def render_generation(genome, gen_label, fitness, displacement,
                       history, surface, font, ffmpeg_proc):
+    import pygame
     c     = build_medusa(genome)
     gd    = genome_to_dict(genome)
     sfont = pygame.font.SysFont(None, 19)
@@ -743,7 +746,7 @@ def save_plots(history, script_dir, timestamp):
 #  CSV EXPORT
 # ============================================================
 
-def save_csv(history, script_dir, timestamp):
+def save_csv(history, script_dir, timestamp, silent=False):
     path = os.path.join(script_dir, f"evolution_{timestamp}.csv")
     with open(path, 'w', newline='') as f:
         writer = csv.writer(f)
@@ -763,7 +766,8 @@ def save_csv(history, script_dir, timestamp):
                 f"{math.degrees(gd['arm_angle']):.2f}",
                 f"{gd['arm_length']:.4f}",
             ])
-    print(f"  CSV  saved: {path}")
+    if not silent:
+        print(f"  CSV  saved: {path}")
 
 
 # ============================================================
@@ -771,6 +775,7 @@ def save_csv(history, script_dir, timestamp):
 # ============================================================
 
 def main():
+    import pygame
     total_start = time.time()
 
     print("=" * 72)
@@ -792,9 +797,7 @@ def main():
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     timestamp  = time.strftime("%Y%m%d_%H%M%S")
-    video_path = os.path.join(script_dir, f"evolution_{timestamp}.mp4")
-    ffmpeg_proc = open_video(video_path)
-    print(f"  Video → {video_path}\n")
+    print(f"  Videos → {script_dir}/evolution_{timestamp}_genXXX.mp4\n")
 
     history = {
         'best': [], 'avg': [], 'min': [],
@@ -864,9 +867,13 @@ def main():
                   f"gen_time={fmt_time(time.time()-gen_start)}", flush=True)
 
             print(f"  Rendering...", end='', flush=True)
+            gen_video_path = os.path.join(script_dir, f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
+            gen_proc = open_video(gen_video_path)
             render_generation(best_g, gen+1, best_f, best_d,
-                              history, surface, font, ffmpeg_proc)
-            print(" done.")
+                              history, surface, font, gen_proc)
+            gen_proc.stdin.close(); gen_proc.wait()
+            print(f" done → {os.path.basename(gen_video_path)}")
+            save_csv(history, script_dir, timestamp, silent=True)
 
             last_gen_done = gen
 
@@ -882,8 +889,12 @@ def main():
         # Final champion render (best ever, may differ from last gen best)
         print(f"\n{'═'*72}")
         print("  FINAL CHAMPION — rendering best-ever genome...")
+        champ_video_path = os.path.join(script_dir, f"evolution_{timestamp}_champion.mp4")
+        champ_proc = open_video(champ_video_path)
         render_generation(best_g_ever, f"{last_gen_done+1}★", best_ever, best_d_ever,
-                          history, surface, font, ffmpeg_proc)
+                          history, surface, font, champ_proc)
+        champ_proc.stdin.close(); champ_proc.wait()
+        print(f"  Champion video → {os.path.basename(champ_video_path)}")
         print(f"  Best ever fitness: {best_ever:.5f}")
         gd = genome_to_dict(best_g_ever)
         print(f"  Champion genome:")
@@ -896,7 +907,6 @@ def main():
 
     finally:
         pool.close(); pool.join()
-        ffmpeg_proc.stdin.close(); ffmpeg_proc.wait()
         pygame.quit()
 
     elapsed = time.time() - total_start
@@ -907,7 +917,7 @@ def main():
     print(f"\n{'═'*72}")
     print("  EVOLUTION COMPLETE")
     print(f"  Total time : {fmt_time(elapsed)}")
-    print(f"  Video      : {video_path}")
+    print(f"  Videos     : evolution_{timestamp}_gen001.mp4 … + champion.mp4")
     print(f"{'═'*72}")
 
 
