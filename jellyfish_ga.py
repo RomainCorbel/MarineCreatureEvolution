@@ -53,7 +53,6 @@ FITNESS_DIST_EXP   = 1.5
 FITNESS_ENERGY_EXP = 0.5
 ENERGY_EPSILON     = 1.0
 MIN_DISPLACEMENT   = 0.05
-
 # ============================================================
 #  GENOME
 #  index: 0=amplitude  1=period  2=duty_cycle  3=arm_angle  4=arm_length
@@ -61,8 +60,7 @@ MIN_DISPLACEMENT   = 0.05
 GENOME_KEYS   = ['amplitude', 'period', 'duty_cycle', 'arm_angle', 'arm_length']
 GENOME_IS_INT = [False,        True,     False,         False,       False]
 GENOME_MIN    = np.array([0.05,  FPS//2,  0.05,  0.30,  0.30], dtype=np.float64)
-GENOME_MAX    = np.array([2.00,  FPS*4,   0.95,  2.60,  1.50], dtype=np.float64)
-
+GENOME_MAX    = np.array([2.00,  FPS*4,   0.95,  2.60,  1.50], dtype=np.float64) * 2 
 # ============================================================
 #  GA
 # ============================================================
@@ -330,7 +328,7 @@ def _evaluate(genome):
     displacement = float(np.linalg.norm(end_pos - start_pos))
     energy       = c['energy_muscle'] + c['energy_drag']
 
-    if displacement < MIN_DISPLACEMENT or energy <= 0.0:
+    if displacement < MIN_DISPLACEMENT:
         return 0.0, float(displacement), float(energy)
 
     fitness = (displacement ** FITNESS_DIST_EXP) / (energy ** FITNESS_ENERGY_EXP + ENERGY_EPSILON)
@@ -931,8 +929,6 @@ def main():
         pygame.quit()
 
     elapsed = time.time() - total_start
-    print(f"\n[Plots] Generating...")
-    save_plots(history, script_dir, timestamp)
     save_csv(history, script_dir, timestamp)
 
     print(f"\n{'═'*72}")
