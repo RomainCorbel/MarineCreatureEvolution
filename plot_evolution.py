@@ -307,7 +307,7 @@ def main():
     n_pop   = len(history['all_fitnesses'][0]) if history['all_fitnesses'] else 0
     print(f"  {n_gens} generations, {n_pop} individuals each")
 
-    plots_dir = os.path.join(script_dir, "plots")
+    plots_dir = os.path.join(script_dir, f"plots_{timestamp}")
     os.makedirs(plots_dir, exist_ok=True)
 
     print("Generating plots...")

@@ -66,9 +66,9 @@ GENOME_MAX    = np.array([2.00,  FPS*4,   0.95,  2.60,  1.50], dtype=np.float64)
 # ============================================================
 #  GA
 # ============================================================
-prop_elit = 3/80
-prop_inject = 6/80
-POP_SIZE             = 100
+prop_elit = 0.05
+prop_inject = 0.1
+POP_SIZE             = 50
 NUM_GENERATIONS      = 20
 ELITE_COUNT          = int(POP_SIZE * prop_elit)
 TOURNAMENT_SIZE      = 5
@@ -816,7 +816,9 @@ def main():
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     timestamp  = time.strftime("%Y%m%d_%H%M%S")
-    print(f"  Videos → {script_dir}/videos/evolution_{timestamp}_genXXX.mp4\n")
+    video_dir  = os.path.join(script_dir, f"videos_{timestamp}")
+    os.makedirs(video_dir, exist_ok=True)
+    print(f"  Videos → {video_dir}/evolution_{timestamp}_genXXX.mp4\n")
 
     history = {
         'best': [], 'avg': [], 'min': [],
@@ -886,7 +888,7 @@ def main():
                   f"gen_time={fmt_time(time.time()-gen_start)}", flush=True)
 
             print(f"  Rendering...", end='', flush=True)
-            gen_video_path = os.path.join(script_dir, 'videos', f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
+            gen_video_path = os.path.join(video_dir, f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
             gen_proc = open_video(gen_video_path)
             render_generation(best_g, gen+1, best_f, best_d,
                               history, surface, font, gen_proc)
@@ -908,7 +910,7 @@ def main():
         # Final champion render (best ever, may differ from last gen best)
         print(f"\n{'═'*72}")
         print("  FINAL CHAMPION — rendering best-ever genome...")
-        champ_video_path = os.path.join(script_dir, f"evolution_{timestamp}_champion.mp4")
+        champ_video_path = os.path.join(video_dir, f"evolution_{timestamp}_champion.mp4")
         champ_proc = open_video(champ_video_path)
         render_generation(best_g_ever, f"{last_gen_done+1}★", best_ever, best_d_ever,
                           history, surface, font, champ_proc)
@@ -936,7 +938,7 @@ def main():
     print(f"\n{'═'*72}")
     print("  EVOLUTION COMPLETE")
     print(f"  Total time : {fmt_time(elapsed)}")
-    print(f"  Videos     : evolution_{timestamp}_gen001.mp4 … + champion.mp4")
+    print(f"  Videos     : {video_dir}/")
     print(f"{'═'*72}")
 
 
