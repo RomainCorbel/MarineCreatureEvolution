@@ -867,7 +867,7 @@ def main():
                   f"gen_time={fmt_time(time.time()-gen_start)}", flush=True)
 
             print(f"  Rendering...", end='', flush=True)
-            gen_video_path = os.path.join(script_dir, f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
+            gen_video_path = os.path.join(script_dir, 'videos', f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
             gen_proc = open_video(gen_video_path)
             render_generation(best_g, gen+1, best_f, best_d,
                               history, surface, font, gen_proc)
