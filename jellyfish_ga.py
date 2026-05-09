@@ -463,7 +463,7 @@ def _draw_mini_chart(surface, history, cur_gen_idx, x, y, sfont, w=200, h=120):
                  (x, y + h + 4))
 
 
-def render_generation(genome, gen_label, fitness, displacement,
+def render_generation(genome, gen_label, fitness, displacement, energy,
                       history, surface, font, ffmpeg_proc):
     import pygame
     c     = build_medusa(genome)
@@ -525,8 +525,9 @@ def render_generation(genome, gen_label, fitness, displacement,
             f"Generation   {gen_label} / {NUM_GENERATIONS}",
             f"Fitness      {fitness:.5f}",
             f"Displacement {displacement:.3f} units",
+            f"Energy       {energy:.3f}",
             "",
-            "─── Genome ─────────────────────",
+            "Genome:",
             f"Amplitude     {gd['amplitude']:.3f} rad",
             f"Frequency     {freq_hz:.2f} Hz  ({gd['period']} fr)",
             f"Duty cycle    {gd['duty_cycle']:.3f}  "
@@ -832,6 +833,7 @@ def main():
     best_ever      = 0.0
     best_g_ever    = population[0].copy()
     best_d_ever    = 0.0
+    best_e_ever    = 0.0
     stagnation     = 0
     last_gen_done  = 0
 
@@ -850,12 +852,14 @@ def main():
             min_f    = float(fit_arr.min())
             best_g   = population[best_idx]
             best_d   = disps[best_idx]
+            best_e   = energies[best_idx]
 
             improved = best_f > best_ever * STAGNATION_THRESHOLD
             if improved:
                 best_ever   = best_f
                 best_g_ever = best_g.copy()
                 best_d_ever = best_d
+                best_e_ever = best_e
                 stagnation  = 0
                 tag = " ★ new best"
             else:
@@ -888,7 +892,7 @@ def main():
             print(f"  Rendering...", end='', flush=True)
             gen_video_path = os.path.join(video_dir, f"evolution_{timestamp}_gen{gen+1:03d}.mp4")
             gen_proc = open_video(gen_video_path)
-            render_generation(best_g, gen+1, best_f, best_d,
+            render_generation(best_g, gen+1, best_f, best_d, best_e,
                               history, surface, font, gen_proc)
             gen_proc.stdin.close(); gen_proc.wait()
             print(f" done → {os.path.basename(gen_video_path)}")
@@ -910,7 +914,7 @@ def main():
         print("  FINAL CHAMPION — rendering best-ever genome...")
         champ_video_path = os.path.join(video_dir, f"evolution_{timestamp}_champion.mp4")
         champ_proc = open_video(champ_video_path)
-        render_generation(best_g_ever, f"{last_gen_done+1}★", best_ever, best_d_ever,
+        render_generation(best_g_ever, f"{last_gen_done+1}★", best_ever, best_d_ever, best_e_ever,
                           history, surface, font, champ_proc)
         champ_proc.stdin.close(); champ_proc.wait()
         print(f"  Champion video → {os.path.basename(champ_video_path)}")
